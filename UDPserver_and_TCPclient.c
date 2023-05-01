@@ -229,8 +229,18 @@ void receiveHighestNumber(char *buffer, int internet_socket, int number_of_bytes
 		
 		else
 		{
-			buffer[number_of_bytes_received] = '\0';
 			printf( "Received highest number = %s\n", buffer );
+			/*
+			buffer[number_of_bytes_received] = '\0';
+			if ((buffer <= ) & (buffer >= "0"))
+			{
+				printf( "Received highest number = %s\n", buffer );
+			}
+			else
+			{
+				receiveHighestNumber( buffer, internet_socket, number_of_bytes_received, client_internet_address, client_internet_address_length);
+			}
+			*/
 			
 		}
 	}
