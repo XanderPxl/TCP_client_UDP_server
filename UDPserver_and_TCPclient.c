@@ -41,37 +41,67 @@
 #endif
 
 int UDPinitialization();
-void execution( int internet_socket );
+void UDPexecution( int internet_socket );
+void UDPcleanup( int internet_socket );
+
 void sendRandomNumbers(int number_of_bytes_send, int internet_socket, struct sockaddr_storage client_internet_address, int client_internet_address_length);
-int receiveGO( char *buffer, bool *go, int internet_socket, struct sockaddr_storage client_internet_address, int client_internet_address_length);
+int receiveGO( char *buffer, int number_of_bytes_received, int number_of_bytes_send, int internet_socket, struct sockaddr_storage client_internet_address, int client_internet_address_length);
 void receiveHighestNumber(char *buffer, int internet_socket, int number_of_bytes_received, struct sockaddr_storage client_internet_address, int client_internet_address_length);
 void sendOK(int internet_socket, int number_of_bytes_send, struct sockaddr_storage client_internet_address, int client_internet_address_length);
-void cleanup( int internet_socket );
+
+int TCPinitialization();
+void TCPexecution( int internet_socket );
+void TCPcleanup( int internet_socket );
 
 int main( int argc, char * argv[] )
 {
-	//////////////////
-	//Initialization//
-	//////////////////
+	//////////////////////
+	//UDP initialization//
+	//////////////////////
 
 	OSInit();
 
 	int internet_socket = UDPinitialization();
 	srand(time(NULL));
-	/////////////
-	//Execution//
-	/////////////
+	/////////////////
+	//UDP execution//
+	/////////////////
 
-	execution( internet_socket );
+	UDPexecution( internet_socket );
 
 
-	////////////
-	//Clean up//
-	////////////
+	////////////////
+	//UDP clean up//
+	////////////////
 
-	cleanup( internet_socket );
+	UDPcleanup( internet_socket );
 
 	OSCleanup();
+	
+	
+	//////////////////////
+	//TCP initialization//
+	//////////////////////
+
+	OSInit();
+
+	internet_socket = TCPinitialization();
+	
+	/////////////////
+	//TCP execution//
+	/////////////////
+
+	TCPexecution( internet_socket );
+
+
+	////////////////
+	//TCP clean up//
+	////////////////
+
+	TCPcleanup( internet_socket );
+
+	OSCleanup();
+
 
 	return 0;
 }
@@ -79,13 +109,14 @@ int main( int argc, char * argv[] )
 int UDPinitialization()
 {
 	//Step 1.1
+	
 	struct addrinfo internet_address_setup;
 	struct addrinfo * internet_address_result;
 	memset( &internet_address_setup, 0, sizeof internet_address_setup );
 	internet_address_setup.ai_family = AF_UNSPEC;
 	internet_address_setup.ai_socktype = SOCK_DGRAM;
 	internet_address_setup.ai_flags = AI_PASSIVE;
-	int getaddrinfo_return = getaddrinfo( NULL, "24042", &internet_address_setup, &internet_address_result );
+	int getaddrinfo_return = getaddrinfo( "::1", "24042", &internet_address_setup, &internet_address_result );
 	if( getaddrinfo_return != 0 )
 	{
 		fprintf( stderr, "getaddrinfo: %s\n", gai_strerror( getaddrinfo_return ) );
@@ -130,16 +161,28 @@ int UDPinitialization()
 	return internet_socket;
 }
 
-void execution( int internet_socket )
+void UDPexecution( int internet_socket )
 {
 	//Step 2.1
 	int number_of_bytes_received = 0;
 	int number_of_bytes_send = 0;
-	int highest_number = 0;
 	char buffer[1000];
-	bool go;
+	
 	struct sockaddr_storage client_internet_address;
 	socklen_t client_internet_address_length = sizeof client_internet_address;
+	receiveGO(buffer, number_of_bytes_received, number_of_bytes_send, internet_socket, client_internet_address, client_internet_address_length);
+
+
+	
+}
+
+
+
+
+int receiveGO(char *buffer, int number_of_bytes_received, int number_of_bytes_send, int internet_socket, struct sockaddr_storage client_internet_address, int client_internet_address_length)
+{
+	bool go;
+	int highest_number = 0;
 	number_of_bytes_received = recvfrom( internet_socket, buffer, ( sizeof buffer ) - 1, 0, (struct sockaddr *) &client_internet_address, &client_internet_address_length );
 	
 	if( number_of_bytes_received == -1 )
@@ -150,7 +193,17 @@ void execution( int internet_socket )
 	else
 	{
 		buffer[number_of_bytes_received] = '\0';
-		receiveGO(buffer, &go, internet_socket, client_internet_address, client_internet_address_length);
+		if (strcmp(buffer, "GO") == 0)
+		{
+			printf("yes!!!!");
+			printf( "Received : %s\n", buffer );
+			go = true;
+		}
+		else
+		{
+			receiveGO(buffer, number_of_bytes_received, number_of_bytes_send, internet_socket, client_internet_address, client_internet_address_length);
+		}
+		
 		if (go == true)
 		{
 			sendRandomNumbers(number_of_bytes_send, internet_socket, client_internet_address, client_internet_address_length);
@@ -162,26 +215,7 @@ void execution( int internet_socket )
 		
 		
 	}
-
-
 	
-}
-
-
-
-
-int receiveGO(char *buffer, bool *go, int internet_socket, struct sockaddr_storage client_internet_address, int client_internet_address_length)
-{
-	if (strcmp(buffer, "GO") == 0)
-		{
-			printf("yes!!!!");
-			printf( "Received : %s\n", buffer );
-			*go = true;
-		}
-	else
-		{
-			execution(internet_socket);
-		}
 	
 }
 
@@ -262,8 +296,102 @@ void sendOK(int internet_socket, int number_of_bytes_send, struct sockaddr_stora
 
 }
 
-void cleanup( int internet_socket )
+
+void UDPcleanup( int internet_socket )
 {
+	//Step 3.1
+	close( internet_socket );
+}
+
+
+
+int TCPinitialization()
+{
+	//Step 1.1
+	struct addrinfo internet_address_setup;
+	struct addrinfo * internet_address_result;
+	memset( &internet_address_setup, 0, sizeof internet_address_setup );
+	internet_address_setup.ai_family = AF_UNSPEC;
+	internet_address_setup.ai_socktype = SOCK_STREAM;
+	int getaddrinfo_return = getaddrinfo( "::1", "24042", &internet_address_setup, &internet_address_result );
+	if( getaddrinfo_return != 0 )
+	{
+		fprintf( stderr, "getaddrinfo: %s\n", gai_strerror( getaddrinfo_return ) );
+		exit( 1 );
+	}
+
+	int internet_socket = -1;
+	struct addrinfo * internet_address_result_iterator = internet_address_result;
+	while( internet_address_result_iterator != NULL )
+	{
+		//Step 1.2
+		internet_socket = socket( internet_address_result_iterator->ai_family, internet_address_result_iterator->ai_socktype, internet_address_result_iterator->ai_protocol );
+		if( internet_socket == -1 )
+		{
+			perror( "socket" );
+		}
+		else
+		{
+			//Step 1.3
+			int connect_return = connect( internet_socket, internet_address_result_iterator->ai_addr, internet_address_result_iterator->ai_addrlen );
+			if( connect_return == -1 )
+			{
+				perror( "connect" );
+				close( internet_socket );
+			}
+			else
+			{
+				break;
+			}
+		}
+		internet_address_result_iterator = internet_address_result_iterator->ai_next;
+	}
+
+	freeaddrinfo( internet_address_result );
+
+	if( internet_socket == -1 )
+	{
+		fprintf( stderr, "socket: no valid socket address found\n" );
+		exit( 2 );
+	}
+
+	return internet_socket;
+}
+
+void TCPexecution( int internet_socket )
+{
+	//Step 2.1
+	int number_of_bytes_send = 0;
+	number_of_bytes_send = send( internet_socket, "Hello TCP world!", 16, 0 );
+	if( number_of_bytes_send == -1 )
+	{
+		perror( "send" );
+	}
+
+	//Step 2.2
+	int number_of_bytes_received = 0;
+	char buffer[1000];
+	number_of_bytes_received = recv( internet_socket, buffer, ( sizeof buffer ) - 1, 0 );
+	if( number_of_bytes_received == -1 )
+	{
+		perror( "recv" );
+	}
+	else
+	{
+		buffer[number_of_bytes_received] = '\0';
+		printf( "Received : %s\n", buffer );
+	}
+}
+
+void TCPcleanup( int internet_socket )
+{
+	//Step 3.2
+	int shutdown_return = shutdown( internet_socket, SD_SEND );
+	if( shutdown_return == -1 )
+	{
+		perror( "shutdown" );
+	}
+
 	//Step 3.1
 	close( internet_socket );
 }
